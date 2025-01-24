@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using workshop.wwwapi.DTOs;
 using workshop.wwwapi.Repository;
 
 namespace workshop.wwwapi.Endpoints
@@ -18,7 +19,40 @@ namespace workshop.wwwapi.Endpoints
         public static async Task<IResult> GetPatients(IRepository repository)
         { 
             return TypedResults.Ok(await repository.GetPatients());
+
         }
+
+
+        [ProducesResponseType(StatusCodes.Status200OK)]
+
+        public static async Task<IResult> GetPatientById(int id)
+        {
+            
+            try
+            {
+                var patient = await _patientRepository.GetPatientByIdAsync(id);
+
+                if (patient == null)
+                {
+                    return NotFound($"Patient with ID {id} not found.");
+                }
+
+                // Use AutoMapper to map entity to DTO
+                var patientDto = _mapper.Map<PatientDTO>(patient);
+
+                return Ok(patientDto);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            
+
+
+        }
+
+
+
         [ProducesResponseType(StatusCodes.Status200OK)]
         public static async Task<IResult> GetDoctors(IRepository repository)
         {
