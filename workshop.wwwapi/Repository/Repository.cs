@@ -8,62 +8,85 @@ namespace workshop.wwwapi.Repository
    /// Generic Repository with some basic CRUD
    /// </summary>
    /// <typeparam name="T">The generic type with which to perform database operations on</typeparam>
-    public class Repository<T> : IRepository<T> where T : class
+    public class Repository(DatabaseContext db) : IRepository
     {
-        private DatabaseContext _db;
-        private DbSet<T> _table = null!;
 
-        public Repository(DatabaseContext dataContext)
+
+        public async Task<Patient> CreatePatient(string fullName)
         {
-            _db = dataContext;
-            _table = _db.Set<T>();
+            var p = new Patient() { FullName = fullName };
+            await db.Patients.AddAsync(p);
+            return p;
         }
-
-        public async Task<IEnumerable<T>> Get()
+        public async Task<IEnumerable<Patient>> GetPatients()
         {
-            return _table.ToList();
-        }
+            return await db.Patients
+                .Include(p => p.Appointments)
+                .ThenInclude(p => p.Doctor)
+                .ToListAsync();
 
-        public async Task<T> Insert(T entity)
-        {
-            _table.Add(entity);
-            _db.SaveChanges();
-            return entity;
         }
 
-        public async Task<T> Update(T entity)
+        public async Task<Patient> GetPatientById(int id)
         {
-            _table.Attach(entity);
-            _db.Entry(entity).State = EntityState.Modified;
-            _db.SaveChanges();
-            return entity;
+            return (await db.Patients
+                .Include(p => p.Appointments)
+                .ThenInclude(p => p.Doctor)
+                .FirstOrDefaultAsync(x => x.Id == id))!;
         }
 
-        public async Task<T> Delete(object id)
+
+        public async Task<Doctor> CreateDoctor(string fullName)
         {
-            T entity = _table.Find(id);
-            _table.Remove(entity);
-            _db.SaveChanges();
-            return entity;
+            var d = new Doctor() { FullName = fullName };
+            await db.Doctors.AddAsync(d);
+            return d;
         }
 
-        public async Task<T> GetById(int id)
+        public async Task<IEnumerable<Doctor>> GetDoctors()
         {
-            return _table.Find(id);
-        }
-        public async Task<IEnumerable<T>> GetWithIncludes(params Expression<Func<T, object>>[] includes)
-        {
-            IQueryable<T> query = _table;
-            foreach (var include in includes)
-            {
-                query = query.Include(include);
-            }
-            return await query.ToListAsync();
+            return await db.Doctors
+                .Include(p => p.Appointments)
+                .ThenInclude(p => p.Patient)
+                .ToListAsync();
         }
 
-        public async Task Save()
+        public async Task<Doctor> GetDoctorById(int id)
         {
-            _db.SaveChangesAsync();
+            return (await db.Doctors
+                .Include(x => x.Appointments)
+                .ThenInclude(p => p.Patient)
+                .FirstOrDefaultAsync(x => x.Id == id))!;
         }
+
+        public async Task<Appointment> CreateAppointment(int patientId, int doctorId, DateTime booking)
+        {
+            var result = new Appointment() { PatientId = patientId, DoctorId = doctorId, Booking = booking };
+            await db.Appointments.AddAsync(result);
+            await db.SaveChangesAsync();
+            return result;
+        }
+
+        public async Task<IEnumerable<Appointment>> GetAppointments()
+        {
+            return await db.Appointments
+                .Include(p => p.Patient)
+                .Include(d => d.Doctor)
+                .ToListAsync();
+        }
+
+        public async Task<Appointment> GetAppointmentById(int patientId, int doctorId)
+        {
+            return await db.Appointments
+                .Include(p => p.Patient)
+                .Include(d => d.Doctor)
+                .Where(a => a.PatientId == patientId && a.DoctorId == doctorId)
+                .FirstOrDefaultAsync();
+        }
+
+ 
+
+
     }
+    
 }
